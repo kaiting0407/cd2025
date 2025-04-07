@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_TOKEN_LEN 256
+
 // Token definitions
 typedef enum {
     TYPE_TOKEN, MAIN_TOKEN, IF_TOKEN, ELSE_TOKEN, WHILE_TOKEN,
@@ -12,7 +14,16 @@ typedef enum {
     UNKNOWN_TOKEN, END_TOKEN
 } Token;
 
-char token_buffer[256];
+char token_buffer[MAX_TOKEN_LEN];
+
+// Original Node structure
+typedef struct Node {
+    char c;
+    struct Node *next;
+} Node;
+
+Node *head = NULL;
+Node *current = NULL;
 
 // Helper functions
 int is_alpha(char ch) {
@@ -28,7 +39,22 @@ int is_alnum(char ch) {
 }
 
 int is_space(char ch) {
-    return ch == ' ' || ch == '\t' || ch == '\n';
+    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r';
+}
+
+char get_next_char() {
+    if (current == NULL) return EOF;
+    char ch = current->c;
+    current = current->next;
+    return ch;
+}
+
+void unget_char() {
+    if (current != head) {
+        Node *tmp = head;
+        while (tmp->next != current) tmp = tmp->next;
+        current = tmp;
+    }
 }
 
 // Check keywords
@@ -42,9 +68,9 @@ Token check_keyword(const char *buffer) {
 }
 
 // Scanner logic
-Token scanner(FILE *fp) {
+Token scanner() {
     int ch;
-    while ((ch = fgetc(fp)) != EOF && (ch == ' ' || ch == '\n' || ch == '\t' || ch == '\r')); // Skip whitespace
+    while ((ch = get_next_char()) != EOF && is_space(ch));
 
     if (ch == EOF) return END_TOKEN;
 
@@ -52,9 +78,9 @@ Token scanner(FILE *fp) {
         int idx = 0;
         do {
             token_buffer[idx++] = ch;
-        } while ((ch = fgetc(fp)) != EOF && (is_alnum(ch) || ch == '_'));
+        } while ((ch = get_next_char()) != EOF && (is_alnum(ch) || ch == '_'));
         token_buffer[idx] = '\0';
-        if (ch != EOF) ungetc(ch, fp);
+        if (ch != EOF) unget_char();
         return check_keyword(token_buffer);
     }
 
@@ -62,9 +88,9 @@ Token scanner(FILE *fp) {
         int idx = 0;
         do {
             token_buffer[idx++] = ch;
-        } while ((ch = fgetc(fp)) != EOF && is_digit(ch));
+        } while ((ch = get_next_char()) != EOF && is_digit(ch));
         token_buffer[idx] = '\0';
-        if (ch != EOF) ungetc(ch, fp);
+        if (ch != EOF) unget_char();
         return LITERAL_TOKEN;
     }
 
@@ -75,16 +101,16 @@ Token scanner(FILE *fp) {
         case '}': return RIGHTBRACE_TOKEN;
         case ';': return SEMICOLON_TOKEN;
         case '=':
-            if ((ch = fgetc(fp)) == '=') return EQUAL_TOKEN;
-            ungetc(ch, fp);
+            if ((ch = get_next_char()) == '=') return EQUAL_TOKEN;
+            unget_char();
             return ASSIGN_TOKEN;
         case '>':
-            if ((ch = fgetc(fp)) == '=') return GREATEREQUAL_TOKEN;
-            ungetc(ch, fp);
+            if ((ch = get_next_char()) == '=') return GREATEREQUAL_TOKEN;
+            unget_char();
             return GREATER_TOKEN;
         case '<':
-            if ((ch = fgetc(fp)) == '=') return LESSEQUAL_TOKEN;
-            ungetc(ch, fp);
+            if ((ch = get_next_char()) == '=') return LESSEQUAL_TOKEN;
+            unget_char();
             return LESS_TOKEN;
         case '+': return PLUS_TOKEN;
         case '-': return MINUS_TOKEN;
@@ -125,13 +151,24 @@ int main(void) {
         return EXIT_FAILURE;
     }
 
+    int ch;
+    Node *tail = NULL;
+    while ((ch = fgetc(fp)) != EOF) {
+        Node *new_node = malloc(sizeof(Node));
+        new_node->c = ch;
+        new_node->next = NULL;
+        if (!head) head = tail = new_node;
+        else tail = tail->next = new_node;
+    }
+    fclose(fp);
+
+    current = head;
     Token token;
     do {
-        token = scanner(fp);
+        token = scanner();
         if (token != END_TOKEN)
             print_token(token);
     } while (token != END_TOKEN);
 
-    fclose(fp);
     return 0;
 }
