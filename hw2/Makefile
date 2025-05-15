@@ -1,14 +1,12 @@
 CC = gcc
 CFLAGS = -Wall -Wextra -std=c99
-TARGET = parser
-SRC = main.c
 
-all: $(TARGET)
+all: parser
 
-$(TARGET): $(SRC)
-	$(CC) $(CFLAGS) -o $(TARGET) $(SRC)
+parser: main.c
+	$(CC) $(CFLAGS) -o parser main.c
 
 clean:
-	rm -f $(TARGET) *.o
+	rm -f parser *.o
 
 .PHONY: all clean 
